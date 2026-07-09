@@ -34,14 +34,15 @@ Before running this script, ensure your system meets the following requirements:
 Follow these simple steps to get your OpenVAS instance up and running:
 
 1. **Open PowerShell**: Launch a PowerShell session (preferably as Administrator).
-2. **Execute the Script**: Run `.\Manage-OpenVAS.ps1`.
-3. **Install Engine (Option 1)**: If you do not have the `wslc` engine installed, select **Option 1** from the menu. This will update WSL to a preview version that supports native containers.
+2. **Bypass Execution Policy**: Because the script is not digitally signed, temporarily bypass the execution policy for your session by running: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+3. **Execute the Script**: Run `.\Manage-OpenVAS.ps1`.
+4. **Install Engine (Option 1)**: If you do not have the `wslc` engine installed, select **Option 1** from the menu. This will update WSL to a preview version that supports native containers.
     * *Note: If the engine was just installed, you will need to close and reopen your PowerShell terminal to reload environment variables, then relaunch the script.*
-4. **Deploy OpenVAS (Option 2)**: Select **Option 2** from the interactive menu. The script will handle the rest:
+5. **Deploy OpenVAS (Option 2)**: Select **Option 2** from the interactive menu. The script will handle the rest:
     * Provision persistent volumes.
     * Pull the necessary container image (`immauss/openvas:latest`) and deploy the container.
     * Initiate the NVT feed synchronization.
-5. **Access the Web UI**: Once deployment is successful, access the Greenbone Security Assistant UI by navigating to `http://localhost:9392` in your web browser.
+6. **Access the Web UI**: Once deployment is successful, access the Greenbone Security Assistant UI by navigating to `http://localhost:9392` in your web browser.
     * **Default Credentials**: `admin` / `admin`
 
 ## 🛠️ Troubleshooting
