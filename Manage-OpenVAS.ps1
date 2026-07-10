@@ -109,7 +109,7 @@ Function Show-SystemStatus {
         $uiColor = "Red"
         if ($status -eq "running") {
             try {
-                $response = Invoke-WebRequest -Uri "http://localhost:9392" -UseBasicParsing -TimeoutSec 1 -ErrorAction Stop
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:9392" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
                 $uiStatus = "Online (Responding)"
                 $uiColor = "Green"
             } catch {
@@ -256,7 +256,7 @@ Function Get-OpenVASStatus {
     $uiStatus = "Offline"
     $uiColor = "Red"
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:9392" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:9392" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         $uiStatus = "Online & Active"
         $uiColor = "Green"
     } catch {
