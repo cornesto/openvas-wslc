@@ -36,13 +36,12 @@ Follow these simple steps to get your OpenVAS instance up and running:
 1. **Open PowerShell**: Launch a PowerShell session (preferably as Administrator).
 2. **Bypass Execution Policy**: Because the script is not digitally signed, temporarily bypass the execution policy for your session by running: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
 3. **Execute the Script**: Run `.\Manage-OpenVAS.ps1`.
-4. **Install Engine (Option 1)**: If you do not have the `wslc` engine installed, select **Option 1** from the menu. This will update WSL to a preview version that supports native containers.
-    * *Note: If the engine was just installed, you will need to close and reopen your PowerShell terminal to reload environment variables, then relaunch the script.*
-5. **Deploy OpenVAS (Option 2)**: Select **Option 2** from the interactive menu. The script will handle the rest:
-    * Provision persistent volumes.
-    * Pull the necessary container image (`immauss/openvas:latest`) and deploy the container.
-    * Initiate the NVT feed synchronization.
-6. **Access the Web UI**: Once deployment is successful, access the Greenbone Security Assistant UI by navigating to `http://localhost:9392` in your web browser.
+4. **Install and Deploy (Option I)**: Select **Option I** from the interactive menu. The script will handle the rest:
+    * Install/Update WSL to support native containers (if needed).
+    * Provision persistent volumes and deploy the `immauss/openvas:latest` container.
+    * *Note: If the WSLC engine was just installed, you will need to close and reopen your PowerShell terminal to reload environment variables, then relaunch the script and select Option I again.*
+5. **Start/Restart Services (Option S)**: Select **Option S** to start the container and wait for the Web UI to come online.
+6. **Access the Web UI**: Once started successfully, access the Greenbone Security Assistant UI by navigating to `http://localhost:9392` in your web browser.
     * **Default Credentials**: `admin` / `admin`
 
 ## 🛠️ Troubleshooting

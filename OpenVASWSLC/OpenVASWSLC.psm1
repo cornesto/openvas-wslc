@@ -93,7 +93,7 @@ Function Show-SystemStatus {
         Write-Host "Containers:   " -NoNewline
         Write-Host "gvm-all-in-one is $status" -ForegroundColor $statusColor
         
-        $uiStatus = "Offline"
+        $uiStatus = "Offline - Use Option L to view logs"
         $uiColor = "Red"
         if ($status -eq "running") {
             try {
@@ -105,7 +105,7 @@ Function Show-SystemStatus {
                     $uiStatus = "Online (Responding)"
                     $uiColor = "Green"
                 } else {
-                    $uiStatus = "Starting up... (Not responding yet)"
+                    $uiStatus = "Starting up... (Not responding yet) - Use Option L to view logs"
                     $uiColor = "Yellow"
                 }
             }
@@ -113,7 +113,7 @@ Function Show-SystemStatus {
         Write-Host "Web UI:       " -NoNewline
         Write-Host $uiStatus -ForegroundColor $uiColor
         Write-Host "Updates:      " -NoNewline
-        Write-Host "Select Option 7 to fetch remote registry diff/update" -ForegroundColor Yellow
+        Write-Host "Select Option U to fetch remote registry diff/update" -ForegroundColor Yellow
     }
 }
 
@@ -146,7 +146,7 @@ Function Install-WSLEngine {
         $wslcVer = (wslc --version 2>&1) -join ""
         Write-Host "`n[SUCCESS] WSLC detected in PATH!" -ForegroundColor Green
         Write-Host "Version Info: $wslcVer"
-        Write-Host "You can now proceed with Option 7 to deploy OpenVAS." -ForegroundColor Green
+        Write-Host "WSLC engine is ready for deployment." -ForegroundColor Green
     } else {
         Write-Host "`n[NOTICE] Update executed, but wslc.exe is not in the current session PATH." -ForegroundColor Yellow
         Write-Host "Please completely CLOSE and RE-OPEN this terminal app to reload the new executables." -ForegroundColor Yellow
@@ -293,7 +293,7 @@ Function Configure-OpenVASLimits {
         Write-Host "Stopping container..." -ForegroundColor Yellow
         wslc stop gvm-all-in-one 2>$null | Out-Null
     } else {
-        Write-Host "Please restart the container using Option 1 to apply scanner configuration changes." -ForegroundColor Yellow
+        Write-Host "Please restart the container using Option S to apply scanner configuration changes." -ForegroundColor Yellow
     }
 }
 
@@ -303,12 +303,14 @@ Function Configure-OpenVASLimits {
 
 Function Install-OpenVAS {
     if (-not (Test-EngineAvailability).WSLC) {
-        Write-Host "`n[ERROR] wslc.exe is not installed or not in PATH." -ForegroundColor Red
-        Write-Host "Please run Option 8 from the menu to install the WSLC engine." -ForegroundColor Yellow
-        return
+        Write-Host "`n[NOTICE] wslc.exe is not installed or not in PATH. Installing WSL dependencies..." -ForegroundColor Yellow
+        Install-WSLEngine
+        if (-not (Test-EngineAvailability).WSLC) {
+            return
+        }
     }
     if (Test-OpenVASInstalled) {
-        Write-Host "`n[NOTICE] OpenVAS is already installed. Use Option 1 to Start/Restart or Option 7 to Update." -ForegroundColor Yellow
+        Write-Host "`n[NOTICE] OpenVAS is already installed. Use Option S to Start/Restart or Option U to Update." -ForegroundColor Yellow
         return
     }
 
@@ -329,70 +331,54 @@ Function Install-OpenVAS {
 
     Write-Host "`nInitial deployment complete." -ForegroundColor Yellow
     Write-Host "Because SKIPSYNC=true was used, feeds will not auto-download." -ForegroundColor Gray
-    Write-Host "Use Option 5 in the menu to force a manual HTTP sync if desired." -ForegroundColor Gray
+    Write-Host "Use Option F in the menu to force a manual HTTP sync if desired." -ForegroundColor Gray
 }
 
-Function Get-OpenVASStatus {
-    if (-not (Ensure-OpenVASInstalled)) { return }
 
-    Write-Host "`n=== COMPONENT STATUS ===" -ForegroundColor Cyan
-    Write-Host ("{0,-30} | {1}" -f "CONTAINER NAME", "STATE")
-    Write-Host ("-" * 50)
-
-    foreach ($container in $Containers) {
-        $rawStatus = (wslc inspect $container 2>$null | ConvertFrom-Json)
-        
-        if ($null -eq $rawStatus) {
-            $status = "missing"
-            $color = "Red"
-        } else {
-            $status = $rawStatus[0].State.Status
-            if ($status -eq "running") { 
-                $color = "Green" 
-            } elseif ($status -eq "exited" -or $status -eq "created") { 
-                $color = "Yellow" 
-            } else { 
-                $color = "Red" 
-                if (-not $status) { $status = "unknown / down" }
-            }
-        }
-        Write-Host ("{0,-30} | {1}" -f $container, $status) -ForegroundColor $color
-    }
-
-    Write-Host ("-" * 50)
-    Write-Host ("{0,-30} | " -f "Web UI (http://localhost:9392)") -NoNewline
-    
-    $uiStatus = "Offline"
-    $uiColor = "Red"
-    try {
-        $response = Invoke-WebRequest -Uri "http://127.0.0.1:9392" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
-        $uiStatus = "Online & Active"
-        $uiColor = "Green"
-    } catch {
-        if ($_.Exception.Response) {
-            $uiStatus = "Online & Active"
-            $uiColor = "Green"
-        } else {
-            $uiStatus = "Offline (Not Responding)"
-            $uiColor = "Yellow"
-        }
-    }
-    Write-Host $uiStatus -ForegroundColor $uiColor
-}
 
 Function Restart-OpenVAS {
     if (-not (Ensure-OpenVASInstalled)) { return }
 
-    Write-Host "`n=== RESTARTING SERVICES ===" -ForegroundColor Cyan
+    Write-Host "`n=== STARTING / RESTARTING SERVICES ===" -ForegroundColor Cyan
     
-    Write-Host "Stopping gvm-all-in-one..."
-    wslc stop gvm-all-in-one 2>$null | Out-Null
+    $rawStatus = (wslc inspect gvm-all-in-one 2>$null | ConvertFrom-Json)
+    $status = if ($null -ne $rawStatus) { $rawStatus[0].State.Status } else { "unknown" }
+    
+    if ($status -eq "running") {
+        Write-Host "Stopping gvm-all-in-one..."
+        wslc stop gvm-all-in-one 2>$null | Out-Null
+    }
     
     Write-Host "Starting gvm-all-in-one..."
     wslc start gvm-all-in-one 2>$null | Out-Null
     
-    Write-Host "`nRestart complete." -ForegroundColor Green
-    Get-OpenVASStatus
+    Write-Host "Waiting for Web UI to come back online (Timeout: 60s)..." -ForegroundColor Yellow
+    $timeout = 60
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $isOnline = $false
+    
+    while ($stopwatch.Elapsed.TotalSeconds -lt $timeout) {
+        try {
+            $response = Invoke-WebRequest -Uri "http://127.0.0.1:9392" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            $isOnline = $true
+            break
+        } catch {
+            if ($_.Exception.Response) {
+                $isOnline = $true
+                break
+            }
+        }
+        Start-Sleep -Seconds 2
+        Write-Host "." -NoNewline
+    }
+    Write-Host ""
+    
+    if ($isOnline) {
+        Write-Host "`nServices started successfully. Web UI is online." -ForegroundColor Green
+    } else {
+        Write-Host "`n[ERROR] Timeout waiting for Web UI. The service may still be starting or failed." -ForegroundColor Red
+        Write-Host "Please use Option L to check the container logs for details." -ForegroundColor Yellow
+    }
 }
 
 Function Stop-OpenVAS {
@@ -404,16 +390,7 @@ Function Stop-OpenVAS {
     Write-Host "`nServices stopped successfully." -ForegroundColor Green
 }
 
-Function Deploy-Or-Rebuild {
-    if (-not (Test-OpenVASInstalled)) {
-        Install-OpenVAS
-    } else {
-        $confirm = Read-Host "OpenVAS is already installed. Do you want to check for image updates and update the container? (Existing scan data will be retained) (Y/N)"
-        if ($confirm -match "^[Yy]$") {
-            Update-OpenVASImages
-        }
-    }
-}
+
 
 Function Ensure-OpenVASInstalled {
     if (Test-OpenVASInstalled) {
@@ -423,7 +400,7 @@ Function Ensure-OpenVASInstalled {
     Write-Host "`n[NOTICE] OpenVAS is not currently deployed." -ForegroundColor Yellow
     $confirm = Read-Host "Would you like to deploy OpenVAS now? (Y/N)"
     if ($confirm -match "^[Yy]$") {
-        Deploy-Or-Rebuild
+        Install-OpenVAS
         return (Test-OpenVASInstalled)
     }
     return $false
@@ -431,7 +408,7 @@ Function Ensure-OpenVASInstalled {
 
 Function Update-OpenVASImages {
     if (-not (Test-EngineAvailability).WSLC) { 
-        Write-Host "`n[ERROR] WSLC engine missing. Run Option 8 first." -ForegroundColor Red
+        Write-Host "`n[ERROR] WSLC engine missing. Run Option I first." -ForegroundColor Red
         return 
     }
 
@@ -461,26 +438,44 @@ Function Update-OpenVASImages {
 }
 
 Function Uninstall-OpenVAS {
-    if (-not (Test-OpenVASInstalled)) {
-        Write-Host "`n[NOTICE] OpenVAS is not currently deployed." -ForegroundColor Yellow
-        return
-    }
-
     Write-Host "`n=== STARTING TEARDOWN ===" -ForegroundColor Red
-    $Confirm = Read-Host "WARNING: This destroys the database and vulnerability feeds. Proceed? (Y/N)"
+    $Confirm = Read-Host "WARNING: This destroys the database, feeds, AND uninstalls the OpenVAS module from PowerShell. Proceed? (Y/N)"
     
     if ($Confirm -notmatch "^[Yy]$") { return }
 
-    $Activity = "Destroying OpenVAS Environment"
+    if (Test-OpenVASInstalled) {
+        $Activity = "Destroying OpenVAS Environment"
 
-    Write-Progress -Activity $Activity -Status "Removing container: gvm-all-in-one" -PercentComplete 50
-    wslc rm -f gvm-all-in-one 2>$null | Out-Null 
+        Write-Progress -Activity $Activity -Status "Removing container: gvm-all-in-one" -PercentComplete 50
+        wslc rm -f gvm-all-in-one 2>$null | Out-Null 
+        
+        Write-Progress -Activity $Activity -Status "Removing volume: openvas_immauss_data" -PercentComplete 100
+        wslc volume rm openvas_immauss_data 2>$null | Out-Null 
+
+        Write-Progress -Activity $Activity -Completed
+        Write-Host "Containers and volumes removed." -ForegroundColor Cyan
+    } else {
+        Write-Host "OpenVAS container is not currently deployed. Skipping container teardown." -ForegroundColor Yellow
+    }
+
+    Write-Host "Removing OpenVASWSLC module from PowerShell..." -ForegroundColor Yellow
+    $ModuleName = "OpenVASWSLC"
+    $MyDocs = [Environment]::GetFolderPath('MyDocuments')
+    if (-not $MyDocs) { $MyDocs = Join-Path $env:USERPROFILE "Documents" }
     
-    Write-Progress -Activity $Activity -Status "Removing volume: openvas_immauss_data" -PercentComplete 100
-    wslc volume rm openvas_immauss_data 2>$null | Out-Null 
-
-    Write-Progress -Activity $Activity -Completed
-    Write-Host "`nTeardown Complete." -ForegroundColor Cyan
+    $DestPaths = @(
+        Join-Path $MyDocs "WindowsPowerShell\Modules\$ModuleName"
+        Join-Path $MyDocs "PowerShell\Modules\$ModuleName"
+    )
+    
+    foreach ($Dest in $DestPaths) {
+        if (Test-Path $Dest) {
+            Write-Host " - Removing module from: $Dest" -ForegroundColor DarkGray
+            Remove-Item -Path $Dest -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    Write-Host "`nTeardown Complete. To fully apply, please close this PowerShell window." -ForegroundColor Green
 }
 
 Function Show-OpenVASLogs {
@@ -529,56 +524,32 @@ Function Manage-OpenVAS {
         Show-SystemStatus
 
         Write-Host "--- INTERACTIVE MENU --------------------------" -ForegroundColor DarkGray
-        Write-Host "1. Start / Restart Services"
-        Write-Host "2. Stop Services"
-        Write-Host "3. Check Component Status"
-        Write-Host "4. View Container Logs"
-        Write-Host "5. Sync Vulnerability Feeds"
-        Write-Host "6. Optimize Resource Limits (Fix Crashes)"
-        Write-Host "7. Deploy / Update Container (Retains Data)"
-        Write-Host "8. Setup / Update WSL Engine"
-        Write-Host "9. Uninstall OpenVAS (Nuke Data)"
-        Write-Host "10. Exit"
+        Write-Host "I. Install OpenVAS"
+        Write-Host "S. Start/Restart OpenVAS"
+        Write-Host "T. Stop OpenVAS"
+        Write-Host "U. Update OpenVAS"
+        Write-Host "L. Check OpenVAS Logs"
+        Write-Host "F. Sync OpenVAS Vuln Feeds"
+        Write-Host "R. Remove OpenVAS"
+        Write-Host "E. Exit"
         
-        $Choice = Read-Host "`nSelect an option (1-10) [Press Enter to Refresh]"
+        $Choice = Read-Host "`nSelect an action (I,S,T,U,L,F,R,E) [Press Enter to Refresh]"
 
-        switch ($Choice) {
-            ''  { continue }
-            '1' { Restart-OpenVAS; Read-Host "`nPress Enter to return to menu..." }
-            '2' { Stop-OpenVAS; Read-Host "`nPress Enter to return to menu..." }
-            '3' { Get-OpenVASStatus; Read-Host "`nPress Enter to return to menu..." }
-            '4' { Show-OpenVASLogs; Read-Host "`nPress Enter to return to menu..." }
-            '5' { Sync-OpenVASFeeds; Read-Host "`nPress Enter to return to menu..." }
-            '6' {
-                Write-Host "`n=== RUNNING RESOURCE & NETWORK OPTIMIZATION ===" -ForegroundColor Cyan
-                $wslUpdated = Optimize-WSLConfig
-                if ($wslUpdated) {
-                    Write-Host "`n[IMPORTANT] WSL configuration was updated to Mirrored Networking & Memory Overcommit." -ForegroundColor Yellow
-                    Write-Host "To apply these changes, you must SHUTDOWN WSL." -ForegroundColor Yellow
-                    $confirm = Read-Host "Do you want to run 'wsl --shutdown' now? (Y/N)"
-                    if ($confirm -match "^[Yy]$") {
-                        Write-Host "Shutting down WSL... Please restart your terminal/script after this completes." -ForegroundColor Yellow
-                        wsl --shutdown
-                        Start-Sleep -Seconds 2
-                        Exit
-                    }
-                }
-                if (Test-OpenVASInstalled) {
-                    Configure-OpenVASLimits
-                } else {
-                    Write-Host "`n[NOTICE] OpenVAS container is not deployed yet. Limits will be automatically configured upon deployment." -ForegroundColor Gray
-                }
-                Read-Host "`nPress Enter to return to menu..."
-            }
-            '7' { Deploy-Or-Rebuild; Read-Host "`nPress Enter to return to menu..." }
-            '8' { Install-WSLEngine; Read-Host "`nPress Enter to return to menu..." }
-            '9' { Uninstall-OpenVAS; Read-Host "`nPress Enter to return to menu..." }
-            '10' { 
+        switch -Regex ($Choice) {
+            '^$'  { continue }
+            '^[Ii]$' { Install-OpenVAS; Read-Host "`nPress Enter to return to menu..." }
+            '^[Ss]$' { Restart-OpenVAS; Read-Host "`nPress Enter to return to menu..." }
+            '^[Tt]$' { Stop-OpenVAS; Read-Host "`nPress Enter to return to menu..." }
+            '^[Uu]$' { Update-OpenVASImages; Read-Host "`nPress Enter to return to menu..." }
+            '^[Ll]$' { Show-OpenVASLogs; Read-Host "`nPress Enter to return to menu..." }
+            '^[Ff]$' { Sync-OpenVASFeeds; Read-Host "`nPress Enter to return to menu..." }
+            '^[Rr]$' { Uninstall-OpenVAS; Read-Host "`nPress Enter to return to menu..." }
+            '^[Ee]$' { 
                 Write-Host "Exiting CORNESTO Orchestrator." -ForegroundColor Cyan
                 $menuLoop = $false 
             }
             Default { 
-                Write-Host "Invalid selection. Please enter a number from 1 to 10." -ForegroundColor Red
+                Write-Host "Invalid selection. Please enter a valid letter." -ForegroundColor Red
                 Start-Sleep -Seconds 2 
             }
         }
